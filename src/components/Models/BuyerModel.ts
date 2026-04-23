@@ -1,4 +1,4 @@
-import { IBuyer, IBuyerFormErrors } from '../../types';
+import { ErrorsBuyer, IBuyer } from '../../types';
 
 const ERROR_MESSAGES: Record<keyof IBuyer, string> = {
     payment: 'Не выбран вид оплаты',
@@ -8,12 +8,16 @@ const ERROR_MESSAGES: Record<keyof IBuyer, string> = {
 };
 
 export class BuyerModel {
-    protected data: Partial<IBuyer>;
-    protected errors: IBuyerFormErrors;
+    protected data: IBuyer;
 
     constructor(data: Partial<IBuyer> = {}) {
-        this.data = data;
-        this.errors = {};
+        this.data = {
+            payment: 'online',
+            email: '',
+            phone: '',
+            address: '',
+            ...data,
+        };
     }
 
     setData(data: Partial<IBuyer>): void {
@@ -23,18 +27,22 @@ export class BuyerModel {
         };
     }
 
-    getData(): Partial<IBuyer> {
+    getData(): IBuyer {
         return this.data;
     }
 
     clear(): void {
-        this.data = {};
-        this.errors = {};
+        this.data = {
+            payment: 'online',
+            email: '',
+            phone: '',
+            address: '',
+        };
     }
 
-    validate(): IBuyerFormErrors {
+    validate(): ErrorsBuyer {
         const fields: Array<keyof IBuyer> = ['payment', 'email', 'phone', 'address'];
-        const errors: IBuyerFormErrors = {};
+        const errors: ErrorsBuyer = {};
 
         fields.forEach((field) => {
             const error = this.validateField(field);
@@ -44,9 +52,7 @@ export class BuyerModel {
             }
         });
 
-        this.errors = errors;
-
-        return this.errors;
+        return errors;
     }
 
     validateField(field: keyof IBuyer): string | undefined {
@@ -57,9 +63,5 @@ export class BuyerModel {
         }
 
         return value ? undefined : ERROR_MESSAGES[field];
-    }
-
-    getErrors(): IBuyerFormErrors {
-        return this.errors;
     }
 }

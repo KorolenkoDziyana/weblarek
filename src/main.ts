@@ -45,10 +45,9 @@ buyerModel.setData({
 });
 console.log('Данные покупателя после полного заполнения:', buyerModel.getData());
 console.log('Ошибки валидации заполненной формы:', buyerModel.validate());
-console.log('Сохранённые ошибки после валидации:', buyerModel.getErrors());
 buyerModel.clear();
 console.log('Данные покупателя после очистки:', buyerModel.getData());
-console.log('Ошибки покупателя после очистки:', buyerModel.getErrors());
+console.log('Ошибки покупателя после очистки:', buyerModel.validate());
 
 const baseApi = new Api(API_URL);
 const webLarekApi = new WebLarekApi(baseApi);

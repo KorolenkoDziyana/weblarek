@@ -22,12 +22,7 @@ export interface IBuyer {
     address: string;
 }
 
-export interface IBuyerFormErrors {
-    payment?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-}
+export type ErrorsBuyer = Partial<Record<keyof IBuyer, string>>;
 
 export interface IProductsResponse {
     total: number;
