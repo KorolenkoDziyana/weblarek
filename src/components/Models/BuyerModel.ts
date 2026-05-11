@@ -1,4 +1,6 @@
 import { ErrorsBuyer, IBuyer } from '../../types';
+import { IEvents } from '../base/Events';
+import { AppEvents } from '../../utils/events';
 
 const ERROR_MESSAGES: Record<keyof IBuyer, string> = {
     payment: 'Не выбран вид оплаты',
@@ -9,15 +11,17 @@ const ERROR_MESSAGES: Record<keyof IBuyer, string> = {
 
 export class BuyerModel {
     protected data: IBuyer;
+    protected events?: IEvents;
 
-    constructor(data: Partial<IBuyer> = {}) {
+    constructor(data: Partial<IBuyer> = {}, events?: IEvents) {
         this.data = {
-            payment: 'online',
+            payment: null,
             email: '',
             phone: '',
             address: '',
             ...data,
         };
+        this.events = events;
     }
 
     setData(data: Partial<IBuyer>): void {
@@ -25,19 +29,21 @@ export class BuyerModel {
             ...this.data,
             ...data,
         };
+        this.events?.emit(AppEvents.BuyerChanged);
     }
 
     getData(): IBuyer {
-        return this.data;
+        return { ...this.data };
     }
 
     clear(): void {
         this.data = {
-            payment: 'online',
+            payment: null,
             email: '',
             phone: '',
             address: '',
         };
+        this.events?.emit(AppEvents.BuyerChanged);
     }
 
     validate(): ErrorsBuyer {

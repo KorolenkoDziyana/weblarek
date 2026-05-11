@@ -1,5 +1,6 @@
 export type ApiPostMethods = 'POST' | 'PUT' | 'DELETE';
 export type TPayment = 'online' | 'cash';
+export type TPaymentButton = 'card' | 'cash';
 
 export interface IApi {
     get<T extends object>(uri: string): Promise<T>;
@@ -16,7 +17,7 @@ export interface IProduct {
 }
 
 export interface IBuyer {
-    payment: TPayment;
+    payment: TPayment | null;
     email: string;
     phone: string;
     address: string;
@@ -38,3 +39,18 @@ export interface IOrderResponse {
     id: string;
     total: number;
 }
+
+export type ProductEvent = {
+    id: string;
+};
+
+export type ProductActionEvent = {
+    item: IProduct;
+};
+
+export type BuyerFieldEvent = {
+    field: keyof IBuyer;
+    value: string | TPayment | null;
+};
+
+export type FormErrors = Partial<Record<keyof IBuyer, string>>;
