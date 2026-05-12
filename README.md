@@ -41,9 +41,9 @@ VITE_API_ORIGIN=https://larek-api.nomoreparties.co
 
 Model хранит данные приложения и сообщает об их изменении событиями. Модели не работают с DOM и не выполняют запросы к серверу.
 
-View отвечает за DOM: находит элементы в своём контейнере, сохраняет их в полях, отображает переданные данные и генерирует события действий пользователя.
+View отвечает за DOM: находит элементы в своём контейнере, сохраняет их в полях, отображает переданные данные и навешивает переданные из презентера обработчики пользовательских действий. Полями View-классов являются только HTML-элементы.
 
-Presenter реализован в `src/main.ts`. Он подписывается на события моделей и представления, вызывает методы моделей, подготавливает данные для View и обращается к API. Презентер не генерирует события сам.
+Presenter реализован в `src/main.ts`. Он подписывается на события моделей, вызывает методы моделей, подготавливает данные для View, создаёт обработчики действий пользователя и обращается к API.
 
 Взаимодействие слоёв построено через брокер событий `EventEmitter`.
 
@@ -53,9 +53,7 @@ Presenter реализован в `src/main.ts`. Он подписывается
 
 `ApiPostMethods = 'POST' | 'PUT' | 'DELETE'` - HTTP-методы для отправки данных.
 
-`TPayment = 'online' | 'cash'` - способы оплаты в данных заказа.
-
-`TPaymentButton = 'card' | 'cash'` - имена кнопок оплаты в HTML-шаблоне.
+`TPayment = 'card' | 'cash'` - способы оплаты в данных заказа. Значение берётся из атрибута `name` кнопки оплаты.
 
 `IApi` - интерфейс базового API-клиента:
 
@@ -94,10 +92,6 @@ Presenter реализован в `src/main.ts`. Он подписывается
 
 - `id: string` - идентификатор заказа.
 - `total: number` - подтверждённая сумма.
-
-`ProductEvent` - событие с `id` товара.
-
-`ProductActionEvent` - событие с объектом товара `item: IProduct`.
 
 `BuyerFieldEvent` - событие изменения поля покупателя:
 
@@ -276,7 +270,7 @@ Presenter реализован в `src/main.ts`. Он подписывается
 
 Конструктор:
 
-- `constructor(container: HTMLElement, events: IEvents)` - принимает корневой элемент страницы и брокер событий.
+- `constructor(container: HTMLElement, onBasketClick: () => void)` - принимает корневой элемент страницы и обработчик клика по корзине.
 
 Поля:
 
@@ -299,7 +293,7 @@ Presenter реализован в `src/main.ts`. Он подписывается
 
 Конструктор:
 
-- `constructor(container: HTMLElement, events: IEvents)`.
+- `constructor(container: HTMLElement, onClose: () => void)`.
 
 Поля:
 
@@ -334,8 +328,11 @@ Presenter реализован в `src/main.ts`. Он подписывается
 Поля:
 
 - `image: HTMLImageElement`;
-- `category: HTMLElement`;
-- `id: string`.
+- `category: HTMLElement`.
+
+Конструктор:
+
+- `constructor(container: HTMLElement, actions: { onClick: () => void })`.
 
 Метод:
 
@@ -348,20 +345,28 @@ Presenter реализован в `src/main.ts`. Он подписывается
 - `image: HTMLImageElement`;
 - `category: HTMLElement`;
 - `description: HTMLElement`;
-- `button: HTMLButtonElement`;
-- `item: IProduct | null`.
+- `button: HTMLButtonElement`.
+
+Конструктор:
+
+- `constructor(container: HTMLElement, actions: { onClick: () => void })`.
 
 Метод:
 
 - `render(data: PreviewCardData): HTMLElement`.
+- `setButton(value: string): void` - устанавливает текст кнопки.
+- `setButtonDisabled(value: boolean): void` - блокирует или разблокирует кнопку.
 
 `BasketCard` - карточка товара в корзине.
 
 Поля:
 
 - `index: HTMLElement`;
-- `deleteButton: HTMLButtonElement`;
-- `id: string`.
+- `deleteButton: HTMLButtonElement`.
+
+Конструктор:
+
+- `constructor(container: HTMLElement, actions: { onDelete: () => void })`.
 
 Метод:
 
@@ -375,7 +380,7 @@ Presenter реализован в `src/main.ts`. Он подписывается
 
 Конструктор:
 
-- `constructor(container: HTMLElement, events: IEvents)`.
+- `constructor(container: HTMLElement, onSubmit: () => void)`.
 
 Поля:
 
@@ -385,7 +390,7 @@ Presenter реализован в `src/main.ts`. Он подписывается
 
 Метод:
 
-- `render(data: { items: HTMLElement[]; total: number }): HTMLElement`.
+- `render(data: { items: HTMLElement[]; total: number; buttonDisabled: boolean }): HTMLElement`.
 
 ### Form, OrderForm, ContactsForm
 
@@ -408,8 +413,13 @@ Presenter реализован в `src/main.ts`. Он подписывается
 
 Поля:
 
-- `paymentButtons: HTMLButtonElement[]`;
+- `cardButton: HTMLButtonElement`;
+- `cashButton: HTMLButtonElement`;
 - `addressInput: HTMLInputElement`.
+
+Конструктор:
+
+- `constructor(container: HTMLFormElement, onInput: (field: keyof IBuyer, value: string | TPayment | null) => void, onSubmit: () => void)`.
 
 Метод:
 
@@ -421,6 +431,10 @@ Presenter реализован в `src/main.ts`. Он подписывается
 
 - `emailInput: HTMLInputElement`;
 - `phoneInput: HTMLInputElement`.
+
+Конструктор:
+
+- `constructor(container: HTMLFormElement, onInput: (field: keyof IBuyer, value: string | TPayment | null) => void, onSubmit: () => void)`.
 
 Метод:
 
@@ -434,7 +448,7 @@ Presenter реализован в `src/main.ts`. Он подписывается
 
 Конструктор:
 
-- `constructor(container: HTMLElement, events: IEvents)`.
+- `constructor(container: HTMLElement, onClose: () => void)`.
 
 Поля:
 
@@ -470,7 +484,7 @@ Presenter реализован в `src/main.ts`. Он подписывается
 
 При загрузке приложения презентер получает товары через `WebLarekApi`, сохраняет их в `ProductCatalogModel`, а событие `catalog:changed` приводит к отображению каталога.
 
-Клик по карточке генерирует `card:select`; презентер сохраняет выбранный товар в модели, после `preview:changed` открывается модальное окно с подробной карточкой.
+Клик по карточке вызывает обработчик, созданный в презентере внутри `map`. В этом обработчике генерируется `card:select` с товаром из параметра `item`; презентер сохраняет выбранный товар в модели, после `preview:changed` открывается модальное окно с подробной карточкой.
 
 Кнопка в подробной карточке добавляет товар в корзину или удаляет его. После изменения корзины обновляется счётчик в шапке.
 

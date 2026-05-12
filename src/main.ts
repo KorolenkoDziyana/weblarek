@@ -11,13 +11,17 @@ import { ContactsForm, OrderForm } from './components/View/Form';
 import { Modal } from './components/View/Modal';
 import { Page } from './components/View/Page';
 import { Success } from './components/View/Success';
-import { BuyerFieldEvent, IBuyer, IOrderRequest, IProduct, ProductActionEvent, ProductEvent } from './types';
+import { BuyerFieldEvent, IBuyer, IOrderRequest, IProduct } from './types';
 import { API_URL } from './utils/constants';
 import { apiProducts } from './utils/data';
 import { AppEvents } from './utils/events';
 import { cloneTemplate, ensureElement } from './utils/utils';
 
 type ModalState = 'preview' | 'basket' | 'order' | 'contacts' | 'success' | null;
+
+const PREVIEW_BUTTON_UNAVAILABLE = 'Недоступно';
+const PREVIEW_BUTTON_REMOVE = 'Удалить из корзины';
+const PREVIEW_BUTTON_BUY = 'Купить';
 
 const events = new EventEmitter();
 const api = new WebLarekApi(new Api(API_URL));
@@ -26,13 +30,37 @@ const catalogModel = new ProductCatalogModel([], null, events);
 const basketModel = new BasketModel([], events);
 const buyerModel = new BuyerModel({}, events);
 
-const page = new Page(document.body, events);
-const modal = new Modal(ensureElement<HTMLElement>('#modal-container'), events);
+const page = new Page(document.body, () => {
+    events.emit(AppEvents.BasketOpen);
+});
+const modal = new Modal(ensureElement<HTMLElement>('#modal-container'), () => {
+    events.emit(AppEvents.ModalClose);
+});
 
-const basketView = new Basket(cloneTemplate<HTMLElement>('#basket'), events);
-const orderForm = new OrderForm(cloneTemplate<HTMLFormElement>('#order'), events);
-const contactsForm = new ContactsForm(cloneTemplate<HTMLFormElement>('#contacts'), events);
-const successView = new Success(cloneTemplate<HTMLElement>('#success'), events);
+const basketView = new Basket(cloneTemplate<HTMLElement>('#basket'), () => {
+    events.emit(AppEvents.OrderOpen);
+});
+const orderForm = new OrderForm(
+    cloneTemplate<HTMLFormElement>('#order'),
+    (field, value) => {
+        events.emit<BuyerFieldEvent>(AppEvents.FormInput, { field, value });
+    },
+    () => {
+        events.emit(AppEvents.OrderNext);
+    }
+);
+const contactsForm = new ContactsForm(
+    cloneTemplate<HTMLFormElement>('#contacts'),
+    (field, value) => {
+        events.emit<BuyerFieldEvent>(AppEvents.FormInput, { field, value });
+    },
+    () => {
+        events.emit(AppEvents.OrderSubmit);
+    }
+);
+const successView = new Success(cloneTemplate<HTMLElement>('#success'), () => {
+    events.emit(AppEvents.ModalClose);
+});
 
 let modalState: ModalState = null;
 
@@ -58,14 +86,21 @@ function hasErrors(errors: Record<string, string | undefined>): boolean {
 
 function renderCatalog(): void {
     page.catalog = catalogModel.getItems().map((item) => {
-        return new CatalogCard(cloneTemplate<HTMLElement>('#card-catalog'), events).render(item);
+        return new CatalogCard(cloneTemplate<HTMLElement>('#card-catalog'), {
+            onClick: () => {
+                events.emit<IProduct>(AppEvents.CardSelect, item);
+            },
+        }).render(item);
     });
 }
 
 function renderBasket(): HTMLElement {
     const items = basketModel.getItems().map((item, index) => {
-        return new BasketCard(cloneTemplate<HTMLElement>('#card-basket'), events).render({
-            id: item.id,
+        return new BasketCard(cloneTemplate<HTMLElement>('#card-basket'), {
+            onDelete: () => {
+                events.emit<IProduct>(AppEvents.BasketRemove, item);
+            },
+        }).render({
             title: item.title,
             price: item.price,
             index: index + 1,
@@ -75,13 +110,16 @@ function renderBasket(): HTMLElement {
     return basketView.render({
         items,
         total: basketModel.getTotal(),
+        buttonDisabled: basketModel.getCount() === 0,
     });
 }
 
-function renderPreview(item: IProduct): HTMLElement {
-    return new PreviewCard(cloneTemplate<HTMLElement>('#card-preview'), events).render({
-        ...item,
-        inBasket: basketModel.hasItem(item.id),
+function createPreviewCard(): PreviewCard {
+    return new PreviewCard(cloneTemplate<HTMLElement>('#card-preview'), {
+        onClick: () => {
+            events.emit(AppEvents.ProductToggle);
+            closeModal();
+        },
     });
 }
 
@@ -130,7 +168,20 @@ events.on(AppEvents.PreviewChanged, () => {
     const item = catalogModel.getPreview();
 
     if (item) {
-        openModal(renderPreview(item), 'preview');
+        const previewCard = createPreviewCard();
+        const isUnavailable = item.price === null;
+        const isInBasket = basketModel.hasItem(item.id);
+        const buttonText = isUnavailable
+            ? PREVIEW_BUTTON_UNAVAILABLE
+            : isInBasket
+                ? PREVIEW_BUTTON_REMOVE
+                : PREVIEW_BUTTON_BUY;
+
+        const previewContent = previewCard.render(item);
+
+        previewCard.setButton(buttonText);
+        previewCard.setButtonDisabled(isUnavailable);
+        openModal(previewContent, 'preview');
     }
 });
 
@@ -152,34 +203,30 @@ events.on(AppEvents.BuyerChanged, () => {
     }
 });
 
-events.on<ProductEvent>(AppEvents.CardSelect, ({ id }) => {
-    const item = catalogModel.getItem(id);
-
-    if (item) {
-        catalogModel.setPreview(item);
-    }
+events.on<IProduct>(AppEvents.CardSelect, (item) => {
+    catalogModel.setPreview(item);
 });
 
-events.on<ProductActionEvent>(AppEvents.ProductToggle, ({ item }) => {
+events.on(AppEvents.ProductToggle, () => {
+    const item = catalogModel.getPreview();
+
+    if (!item) {
+        return;
+    }
+
     if (basketModel.hasItem(item.id)) {
         basketModel.removeItem(item);
     } else if (item.price !== null) {
         basketModel.addItem(item);
     }
-
-    closeModal();
 });
 
 events.on(AppEvents.BasketOpen, () => {
     openModal(renderBasket(), 'basket');
 });
 
-events.on<ProductEvent>(AppEvents.BasketRemove, ({ id }) => {
-    const item = basketModel.getItems().find((basketItem) => basketItem.id === id);
-
-    if (item) {
-        basketModel.removeItem(item);
-    }
+events.on<IProduct>(AppEvents.BasketRemove, (item) => {
+    basketModel.removeItem(item);
 });
 
 events.on(AppEvents.OrderOpen, () => {

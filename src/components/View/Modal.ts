@@ -1,21 +1,16 @@
-import { IEvents } from '../base/Events';
-import { AppEvents } from '../../utils/events';
-
 export class Modal {
     protected closeButton: HTMLButtonElement;
     protected content: HTMLElement;
 
-    constructor(protected container: HTMLElement, protected events: IEvents) {
+    constructor(protected container: HTMLElement, onClose: () => void) {
         this.closeButton = container.querySelector('.modal__close') as HTMLButtonElement;
         this.content = container.querySelector('.modal__content') as HTMLElement;
 
-        this.closeButton.addEventListener('click', () => {
-            this.events.emit(AppEvents.ModalClose);
-        });
+        this.closeButton.addEventListener('click', onClose);
 
         this.container.addEventListener('mousedown', (event) => {
             if (event.target === this.container) {
-                this.events.emit(AppEvents.ModalClose);
+                onClose();
             }
         });
     }

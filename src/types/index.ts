@@ -1,6 +1,5 @@
 export type ApiPostMethods = 'POST' | 'PUT' | 'DELETE';
-export type TPayment = 'online' | 'cash';
-export type TPaymentButton = 'card' | 'cash';
+export type TPayment = 'card' | 'cash';
 
 export interface IApi {
     get<T extends object>(uri: string): Promise<T>;
@@ -39,14 +38,6 @@ export interface IOrderResponse {
     id: string;
     total: number;
 }
-
-export type ProductEvent = {
-    id: string;
-};
-
-export type ProductActionEvent = {
-    item: IProduct;
-};
 
 export type BuyerFieldEvent = {
     field: keyof IBuyer;

@@ -1,7 +1,5 @@
 import { Component } from '../base/Component';
-import { IEvents } from '../base/Events';
-import { BuyerFieldEvent, FormErrors, IBuyer, TPayment, TPaymentButton } from '../../types';
-import { AppEvents } from '../../utils/events';
+import { FormErrors, IBuyer, TPayment } from '../../types';
 import { setDisabled, setText } from './helpers';
 
 type FormViewData = {
@@ -13,7 +11,7 @@ export abstract class Form<T extends FormViewData> extends Component<T> {
     protected submitButton: HTMLButtonElement;
     protected errors: HTMLElement;
 
-    protected constructor(container: HTMLFormElement, protected events: IEvents) {
+    protected constructor(container: HTMLFormElement) {
         super(container);
         this.submitButton = container.querySelector('button[type="submit"]') as HTMLButtonElement;
         this.errors = container.querySelector('.form__errors') as HTMLElement;
@@ -35,49 +33,44 @@ export abstract class Form<T extends FormViewData> extends Component<T> {
 
 type OrderFormData = FormViewData & Pick<IBuyer, 'payment' | 'address'>;
 
-const paymentByButton: Record<TPaymentButton, TPayment> = {
-    card: 'online',
-    cash: 'cash',
-};
-
-const buttonByPayment: Record<TPayment, TPaymentButton> = {
-    online: 'card',
-    cash: 'cash',
-};
-
 export class OrderForm extends Form<OrderFormData> {
-    protected paymentButtons: HTMLButtonElement[];
+    protected cardButton: HTMLButtonElement;
+    protected cashButton: HTMLButtonElement;
     protected addressInput: HTMLInputElement;
 
-    constructor(container: HTMLFormElement, events: IEvents) {
-        super(container, events);
-        this.paymentButtons = Array.from(container.querySelectorAll('.order__buttons .button')) as HTMLButtonElement[];
+    constructor(
+        container: HTMLFormElement,
+        onInput: (field: keyof IBuyer, value: string | TPayment | null) => void,
+        onSubmit: () => void
+    ) {
+        super(container);
+        this.cardButton = container.elements.namedItem('card') as HTMLButtonElement;
+        this.cashButton = container.elements.namedItem('cash') as HTMLButtonElement;
         this.addressInput = container.elements.namedItem('address') as HTMLInputElement;
 
-        this.paymentButtons.forEach((button) => {
-            button.addEventListener('click', () => {
-                const payment = paymentByButton[button.name as TPaymentButton];
-                this.events.emit<BuyerFieldEvent>(AppEvents.FormInput, { field: 'payment', value: payment });
-            });
+        this.cardButton.addEventListener('click', () => {
+            onInput('payment', this.cardButton.name as TPayment);
+        });
+
+        this.cashButton.addEventListener('click', () => {
+            onInput('payment', this.cashButton.name as TPayment);
         });
 
         this.addressInput.addEventListener('input', () => {
-            this.events.emit<BuyerFieldEvent>(AppEvents.FormInput, { field: 'address', value: this.addressInput.value });
+            onInput('address', this.addressInput.value);
         });
 
         container.addEventListener('submit', (event) => {
             event.preventDefault();
-            this.events.emit(AppEvents.OrderNext);
+            onSubmit();
         });
     }
 
     render(data: OrderFormData): HTMLElement {
         super.render(data);
         this.addressInput.value = data.address;
-        this.paymentButtons.forEach((button) => {
-            const isActive = data.payment !== null && button.name === buttonByPayment[data.payment];
-            button.classList.toggle('button_alt-active', isActive);
-        });
+        this.cardButton.classList.toggle('button_alt-active', data.payment === this.cardButton.name);
+        this.cashButton.classList.toggle('button_alt-active', data.payment === this.cashButton.name);
         this.setErrors([data.errors.payment ?? '', data.errors.address ?? '']);
         return this.container;
     }
@@ -89,22 +82,26 @@ export class ContactsForm extends Form<ContactsFormData> {
     protected emailInput: HTMLInputElement;
     protected phoneInput: HTMLInputElement;
 
-    constructor(container: HTMLFormElement, events: IEvents) {
-        super(container, events);
+    constructor(
+        container: HTMLFormElement,
+        onInput: (field: keyof IBuyer, value: string | TPayment | null) => void,
+        onSubmit: () => void
+    ) {
+        super(container);
         this.emailInput = container.elements.namedItem('email') as HTMLInputElement;
         this.phoneInput = container.elements.namedItem('phone') as HTMLInputElement;
 
         this.emailInput.addEventListener('input', () => {
-            this.events.emit<BuyerFieldEvent>(AppEvents.FormInput, { field: 'email', value: this.emailInput.value });
+            onInput('email', this.emailInput.value);
         });
 
         this.phoneInput.addEventListener('input', () => {
-            this.events.emit<BuyerFieldEvent>(AppEvents.FormInput, { field: 'phone', value: this.phoneInput.value });
+            onInput('phone', this.phoneInput.value);
         });
 
         container.addEventListener('submit', (event) => {
             event.preventDefault();
-            this.events.emit(AppEvents.OrderSubmit);
+            onSubmit();
         });
     }
 
